@@ -1,0 +1,45 @@
+{
+  "name": "seatlock",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time seat reservation system for campus workshops",
+  "main": "server/index.js",
+  "scripts": {
+    "build": "vite build --config vite.config.mjs",
+    "start": "npm run build && node server/index.js",
+    "dev": "concurrently -k -n server,client -c yellow,cyan \"node --watch server/index.js\" \"vite --config vite.config.mjs\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "vite --config vite.config.mjs",
+    "test": "node tests/concurrency.js",
+    "test:ui": "npm run build && node tests/ui-smoke.js",
+    "test:k6": "k6 run tests/k6-load-test.js",
+    "validate:db": "node tests/validate-db.js",
+    "verify": "npm run build && npm test && node tests/ui-smoke.js && npm run validate:db"
+  },
+  "keywords": [
+    "reservation",
+    "real-time",
+    "sse",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.2.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "playwright-core": "^1.63.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.1"
+  }
+}
