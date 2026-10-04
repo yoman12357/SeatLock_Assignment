@@ -14,6 +14,10 @@ This guide states what enters and leaves every project file. Generated folders s
 | `README.md` | Project behavior and commands | Primary setup and operating guide | Entry point for a developer or reviewer. |
 | `docs/ARCHITECTURE.md` | Implemented system design | Architecture, request trace, state, and tradeoff diagrams | Explains why the system works. |
 | `docs/FILE-GUIDE.md` | Project file inventory | Per-file input/output map | Explains where each responsibility lives. |
+| `docs/REFERENCES.md` | Dependencies and consulted technical documentation | Source links and attribution | Separates upstream guidance from project implementation. |
+| `docs/SUBMISSION.md` | Evaluation criteria and reviewer workflow | Demo script, evidence map, and final checklist | Explains how to review and present the project. |
+| `.github/workflows/verify.yml` | Push or pull request | Build and backend correctness checks | Runs repeatable checks without private credentials. |
+| `demo.mp4` (added separately) | Author's screen recording | Submission demonstration | Shows the working UI, concurrent behavior, and explanation; not generated code. |
 
 ## Client entry and state
 
