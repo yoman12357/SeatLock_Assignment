@@ -109,8 +109,55 @@ async function main() {
     await mobilePage.screenshot({ path: path.join(artifactPath, 'dashboard-mobile-dark.png'), fullPage: true });
 
     await mobile.close();
+
+    const secondTab = await desktop.newPage();
+    await secondTab.goto(baseUrl, { waitUntil: 'networkidle' });
+    await secondTab.getByRole('button', { name: 'Sign out' }).click();
+    await secondTab.getByLabel('Campus ID').fill('ui_second');
+    await secondTab.getByLabel('Passcode').fill('review-passcode');
+    await secondTab.getByRole('button', { name: 'Create an account' }).click();
+    await secondTab.getByRole('banner').getByText('ui_second', { exact: true }).waitFor();
+    await page.getByRole('banner').getByText('ui_second', { exact: true }).waitFor({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Hold a seat', exact: true }).waitFor();
+
+    await secondTab.getByRole('button', { name: 'Hold a seat', exact: true }).click();
+    await secondTab.getByRole('heading', { name: 'Confirm before time runs out' }).waitFor();
+    await page.getByRole('heading', { name: 'Confirm before time runs out' }).waitFor();
+    const staleAction = await page.request.post(`${baseUrl}/api/confirm`, {
+        headers: { 'X-SeatLock-User': 'ui_reviewer', 'Idempotency-Key': 'ui-stale-account-confirm' }
+    });
+    if (staleAction.status() !== 409) throw new Error('An old displayed identity was allowed to confirm under a different cookie.');
+
+    const independent = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const independentPage = await independent.newPage();
+    await independentPage.goto(baseUrl, { waitUntil: 'networkidle' });
+    await independentPage.getByLabel('Campus ID').fill('ui_independent');
+    await independentPage.getByLabel('Passcode').fill('review-passcode');
+    await independentPage.getByRole('button', { name: 'Create an account' }).click();
+    await independentPage.getByRole('button', { name: 'Hold a seat', exact: true }).waitFor();
+    if (await independentPage.getByRole('button', { name: 'Confirm reservation', exact: true }).count()) {
+        throw new Error('An independent account was shown another account\'s confirm action.');
+    }
+    const forbiddenConfirm = await independentPage.request.post(`${baseUrl}/api/confirm`, {
+        headers: { 'Idempotency-Key': 'ui-other-account-confirm' }
+    });
+    if (forbiddenConfirm.status() !== 404) throw new Error('Another account could confirm the owner\'s hold.');
+    await secondTab.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
+    await secondTab.getByRole('heading', { name: 'Your seat is secured' }).waitFor();
+    await page.getByRole('heading', { name: 'Your seat is secured' }).waitFor();
+    await independentPage.getByRole('button', { name: 'Hold a seat', exact: true }).waitFor();
+    const independentStatus = await independentPage.request.get(`${baseUrl}/api/status`);
+    const independentSnapshot = await independentStatus.json();
+    if (independentSnapshot.user.status !== 'none' || independentSnapshot.availability.confirmed !== 1) {
+        throw new Error('Owner confirmation leaked into an independent user\'s state or availability was incorrect.');
+    }
+    await secondTab.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('heading', { name: 'Welcome' }).waitFor();
+    await independentPage.getByRole('banner').getByText('ui_independent', { exact: true }).waitFor();
+    await independent.close();
+
     await desktop.close();
-    console.log(`UI smoke test passed (signup, login, theme, desktop, and mobile).`);
+    console.log(`UI smoke test passed (signup, login, theme, desktop, mobile, cross-tab sessions, and independent-account ownership).`);
     console.log(`Screenshots: ${artifactPath}`);
 }
 

@@ -17,7 +17,8 @@ This guide states what enters and leaves every project file. Generated folders s
 | `docs/REFERENCES.md` | Dependencies and consulted technical documentation | Source links and attribution | Separates upstream guidance from project implementation. |
 | `docs/SUBMISSION.md` | Evaluation criteria and reviewer workflow | Demo script, evidence map, and final checklist | Explains how to review and present the project. |
 | `.github/workflows/verify.yml` | Push or pull request | Build and backend correctness checks | Runs repeatable checks without private credentials. |
-| `demo.mp4` (added separately) | Author's screen recording | Submission demonstration | Shows the working UI, concurrent behavior, and explanation; not generated code. |
+| `demo.mp4` | Author's screen recording | Submission demonstration | Shows holds, confirmations, and live availability; not generated code. |
+| `docs/screenshots/concurrency-results.png` | Author's captured test output | Concurrency evidence | Supplements the recording; the tests remain reproducible with `npm test`. |
 
 ## Client entry and state
 
@@ -25,9 +26,9 @@ This guide states what enters and leaves every project file. Generated folders s
 | --- | --- | --- | --- |
 | `client/index.html` | Browser page load and saved theme | Root DOM node and early theme class | Prevents a theme flash before React starts. |
 | `client/src/main.jsx` | Root DOM node and `App` | Mounted React tree | Small React entry point using `createRoot`. |
-| `client/src/App.jsx` | Session responses, status JSON, activity JSON, and SSE events | Page selection, shared state, API commands, and toast messages | Coordinates authentication and the authenticated dashboard. |
+| `client/src/App.jsx` | Session responses, status JSON, activity JSON, SSE, and cross-tab session-change events | Page selection, identity-safe state, API commands, and toast messages | Refreshes shared-cookie identity, clears old account state, and ignores stale responses. |
 | `client/src/styles.css` | Tailwind compiler and shared class names | Global theme, reusable component classes, and reduced-motion behavior | Holds styling that is shared across components. |
-| `client/src/lib/api.js` | Path, method, body, headers, and optional idempotency key | Parsed JSON or an error with status and request ID | Centralizes HTTP behavior and client request IDs. |
+| `client/src/lib/api.js` | Path, method, body, headers, optional idempotency key and expected user ID | Parsed JSON or an error with status, request ID, code, and current user ID | Adds the identity consistency header without using it as authentication. |
 | `client/src/hooks/useTheme.js` | System preference and `localStorage` | `dark` document class, theme color, and toggle function | Owns persistent theme state. |
 
 ## Client components
@@ -51,7 +52,7 @@ This guide states what enters and leaves every project file. Generated folders s
 | `server/index.js` | Environment, HTTP requests, and shutdown signals | Express server, routes, static client, expiry worker, and graceful shutdown | Defines middleware order and process lifecycle. |
 | `server/db.js` | `DB_PATH`, initial configuration, and SQL statements | Open SQLite connection, schema, indexes, constraints, and triggers | Owns persistence setup and migration. |
 | `server/middleware/request-context.js` | Optional `X-Request-Id` and request timing | Response request ID and structured completion log | Makes one HTTP attempt traceable without logging secrets. |
-| `server/middleware/identity.js` | Session cookie or bearer token and idempotency header | Authenticated `req.userId` and validated `req.idempotencyKey` | Protects all authenticated API routes. |
+| `server/middleware/identity.js` | Session cookie or bearer token, optional expected user ID, and idempotency header | Authenticated `req.userId`, validated `req.idempotencyKey`, or a session-mismatch response | Rejects stale-tab identity before domain changes; ownership still comes from the verified token. |
 
 Middleware order matters. Request context runs before JSON parsing so even malformed JSON responses carry a request ID. Authentication runs after public auth routes and before reservation routes.
 
@@ -88,7 +89,7 @@ Routes should stay thin. Domain decisions belong in services so HTTP details do 
 | File | Input | Output or side effect | Responsibility |
 | --- | --- | --- | --- |
 | `tests/concurrency.js` | Temporary database and random local port | 120 concurrent HTTP attempts and invariant assertions | Proves capacity, ownership, idempotency, expiry, FIFO, timeline, and restart behavior. |
-| `tests/ui-smoke.js` | Production client build, temporary database, and local Edge or Chrome | Browser assertions and temporary screenshots | Proves signup, login, hold UI, theme persistence, and responsive layout. |
+| `tests/ui-smoke.js` | Production client build, temporary database, and local Edge or Chrome | Browser assertions and temporary screenshots | Proves signup, login, themes, responsive layout, cross-tab session changes, independent ownership, and live counts. |
 | `tests/validate-db.js` | Configured `DB_PATH` | Migration and current database invariant report | Checks the real local database without starting HTTP. |
 | `tests/k6-load-test.js` | Running disposable SeatLock server and k6 | Optional external load metrics and capacity assertion | Provides a separate load-tool scenario beyond the built-in correctness test. |
 

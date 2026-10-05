@@ -20,6 +20,15 @@ function identityMiddleware(req, res, next) {
     }
     req.userId = userId;
 
+    const expectedUser = req.headers['x-seatlock-user'];
+    if (expectedUser && expectedUser !== userId) {
+        return res.status(409).json({
+            code: 'SESSION_CHANGED',
+            user_id: userId,
+            error: 'Your browser signed in as a different account in another tab. No reservation was changed.'
+        });
+    }
+
     if (req.method === 'POST') {
         const key = req.headers['idempotency-key'] || req.headers['x-idempotency-key'];
         if (!key || !/^[a-zA-Z0-9_.:-]{8,128}$/.test(key)) {

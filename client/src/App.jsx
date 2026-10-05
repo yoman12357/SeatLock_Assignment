@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ActivityFeed from './components/ActivityFeed';
 import AuthScreen from './components/AuthScreen';
 import AvailabilityPanel from './components/AvailabilityPanel';
@@ -14,6 +14,7 @@ const actionRoutes = {
     cancel: '/api/cancel',
     waitlist: '/api/waitlist'
 };
+const sessionChangeKey = 'seatlock-session-change';
 
 export default function App() {
     const { theme, toggleTheme } = useTheme();
@@ -25,6 +26,16 @@ export default function App() {
     const [authBusy, setAuthBusy] = useState(false);
     const [busyAction, setBusyAction] = useState(null);
     const [toasts, setToasts] = useState([]);
+    const sessionUser = useRef(undefined);
+
+    const changeSession = useCallback(userId => {
+        if (sessionUser.current === userId) return;
+        sessionUser.current = userId;
+        setUserStatus(null);
+        setActivity(null);
+        setAvailability(null);
+        setSession({ loading: false, userId });
+    }, []);
 
     const dismissToast = useCallback(id => {
         setToasts(current => current.filter(toast => toast.id !== id));
@@ -37,30 +48,58 @@ export default function App() {
     }, [dismissToast]);
 
     const loadStatus = useCallback(async () => {
+        const expectedUserId = sessionUser.current;
+        if (!expectedUserId) return;
         try {
-            const data = await apiRequest('/api/status');
+            const data = await apiRequest('/api/status', { expectedUserId });
+            if (sessionUser.current !== expectedUserId) return;
             setAvailability(data.availability);
             setUserStatus(data.user);
         } catch (error) {
-            if (error.status === 401) setSession({ loading: false, userId: null });
+            if (sessionUser.current !== expectedUserId) return;
+            if (error.code === 'SESSION_CHANGED') changeSession(error.userId);
+            else if (error.status === 401) changeSession(null);
             else notify('Could not refresh availability.', 'error');
         }
-    }, [notify]);
+    }, [changeSession, notify]);
 
     const loadActivity = useCallback(async () => {
+        const expectedUserId = sessionUser.current;
+        if (!expectedUserId) return;
         try {
-            const data = await apiRequest('/api/activity?limit=30');
+            const data = await apiRequest('/api/activity?limit=30', { expectedUserId });
+            if (sessionUser.current !== expectedUserId) return;
             setActivity(data.logs);
         } catch (error) {
-            if (error.status === 401) setSession({ loading: false, userId: null });
+            if (sessionUser.current !== expectedUserId) return;
+            if (error.code === 'SESSION_CHANGED') changeSession(error.userId);
+            else if (error.status === 401) changeSession(null);
         }
-    }, []);
+    }, [changeSession]);
 
     useEffect(() => {
-        apiRequest('/api/auth/me')
-            .then(data => setSession({ loading: false, userId: data.user_id }))
-            .catch(() => setSession({ loading: false, userId: null }));
-    }, []);
+        let active = true;
+        async function refreshSession() {
+            const previousUser = sessionUser.current;
+            try {
+                const data = await apiRequest('/api/auth/me');
+                if (active && sessionUser.current === previousUser) changeSession(data.user_id);
+            } catch {
+                if (active && sessionUser.current === previousUser) changeSession(null);
+            }
+        }
+        function onStorage(event) {
+            if (event.key === sessionChangeKey) refreshSession();
+        }
+        refreshSession();
+        window.addEventListener('storage', onStorage);
+        window.addEventListener('focus', refreshSession);
+        return () => {
+            active = false;
+            window.removeEventListener('storage', onStorage);
+            window.removeEventListener('focus', refreshSession);
+        };
+    }, [changeSession]);
 
     useEffect(() => {
         if (!session.userId) return undefined;
@@ -73,7 +112,7 @@ export default function App() {
         events.addEventListener('availability', event => setAvailability(JSON.parse(event.data)));
         events.addEventListener('user_status', event => {
             const data = JSON.parse(event.data);
-            if (data.user_id === session.userId) setUserStatus(data);
+            if (data.user_id === sessionUser.current) setUserStatus(data);
         });
         events.addEventListener('activity', loadActivity);
         return () => {
@@ -90,7 +129,8 @@ export default function App() {
                 body: credentials,
                 idempotencyKey: mode === 'register' ? createIdempotencyKey('register') : undefined
             });
-            setSession({ loading: false, userId: data.user_id });
+            changeSession(data.user_id);
+            announceSessionChange();
             notify(mode === 'register' ? 'Account created. Welcome to SeatLock.' : 'Welcome back.');
         } catch (error) {
             notify(error.message, 'error');
@@ -101,10 +141,8 @@ export default function App() {
 
     async function logout() {
         try { await apiRequest('/api/auth/logout', { method: 'POST' }); } catch {}
-        setSession({ loading: false, userId: null });
-        setAvailability(null);
-        setUserStatus(null);
-        setActivity(null);
+        changeSession(null);
+        announceSessionChange();
     }
 
     async function runAction(action) {
@@ -112,11 +150,14 @@ export default function App() {
         try {
             const data = await apiRequest(actionRoutes[action], {
                 method: 'POST',
+                expectedUserId: session.userId,
                 idempotencyKey: createIdempotencyKey(action)
             });
             notify(data.message);
             await Promise.all([loadStatus(), loadActivity()]);
         } catch (error) {
+            if (error.code === 'SESSION_CHANGED') changeSession(error.userId);
+            else if (error.status === 401) changeSession(null);
             notify(error.message, 'error');
             await loadStatus();
         } finally {
@@ -184,6 +225,11 @@ export default function App() {
             <ToastRegion toasts={toasts} onDismiss={dismissToast} />
         </div>
     );
+}
+
+function announceSessionChange() {
+    // Only a change marker is shared; credentials stay in the HttpOnly cookie.
+    try { localStorage.setItem(sessionChangeKey, createIdempotencyKey('session')); } catch {}
 }
 
 function Meta({ label, value }) {

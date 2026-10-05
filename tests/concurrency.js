@@ -137,6 +137,18 @@ async function runTests() {
     check(tracedResponse.requestId === suppliedRequestId,
         'request IDs are returned for end-to-end tracing');
 
+    const staleHold = await api('/api/hold', 'verifier', {
+        method: 'POST', idempotencyKey: key('stale-hold'),
+        headers: { 'X-SeatLock-User': winners[0] }
+    });
+    const staleConfirm = await api('/api/confirm', winners[0], {
+        method: 'POST', idempotencyKey: key('stale-confirm'),
+        headers: { 'X-SeatLock-User': 'verifier' }
+    });
+    check(staleHold.status === 409 && staleConfirm.status === 409 &&
+        staleHold.body.code === 'SESSION_CHANGED' && staleConfirm.body.code === 'SESSION_CHANGED',
+        'stale browser identities cannot hold or confirm for a newly signed-in account');
+
     const duplicate = await api('/api/hold', winners[0], {
         method: 'POST', idempotencyKey: key('duplicate')
     });

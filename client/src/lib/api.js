@@ -8,6 +8,7 @@ export async function apiRequest(path, options = {}) {
     headers['X-Request-Id'] ||= createIdempotencyKey('request');
     if (options.body) headers['Content-Type'] = 'application/json';
     if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
+    if (options.expectedUserId) headers['X-SeatLock-User'] = options.expectedUserId;
 
     const response = await fetch(path, {
         method: options.method || 'GET',
@@ -18,6 +19,8 @@ export async function apiRequest(path, options = {}) {
     if (!response.ok) {
         const error = new Error(data.error || 'Something went wrong');
         error.status = response.status;
+        error.code = data.code;
+        error.userId = data.user_id;
         error.requestId = response.headers.get('X-Request-Id');
         throw error;
     }

@@ -140,6 +140,8 @@ The expiry worker runs once during startup and then on an interval. Availability
 
 Registration stores an `scrypt` hash and random salt. Login returns a signed session token in an `HttpOnly`, `SameSite=Strict` cookie. API clients may send the token as a bearer token. Reservation endpoints never accept a target user ID from the body; they use only the user ID derived from the verified session.
 
+Tabs in one browser profile share that cookie. The client announces login/logout through a non-secret local-storage marker, refreshes `/api/auth/me` on storage changes and window focus, and clears previous-account state. Requests include `X-SeatLock-User` with the displayed ID. Middleware compares it with the verified identity and returns `409 SESSION_CHANGED` before any reservation change if they differ. The header is a consistency check, never an authentication credential. Late responses and user-specific SSE events are ignored when they belong to a previous session. Use separate browser profiles or normal/private sessions for an independent two-user demo.
+
 The current authentication is appropriate for a local project. Production campus use should replace local passcodes with institutional identity, add login rate limiting, use HTTPS with secure cookies, and define account recovery.
 
 ## Live updates

@@ -10,13 +10,15 @@
 
 ## Evaluation evidence
 
+Local verification on 5 October 2026: `npm run verify` passed the production build, 34 backend assertions, browser smoke checks (including shared-tab session changes and independent-account ownership), and database invariant validation. This does not imply the GitHub Actions run has already completed.
+
 | Criterion | Evidence | What still requires the author |
 | --- | --- | --- |
 | Effort and development practice | Real commit history, focused modules, automated checks | Explain actual work and tradeoffs; do not rewrite dates or manufacture history. |
 | Documentation | README, architecture/request traces, file guide | Follow the setup once from a fresh clone. |
 | External-source understanding | [REFERENCES.md](REFERENCES.md) | Explain the references and credit any additional sources actually used. |
 | Features beyond the basic flow | Request IDs, append-only timeline, restart recovery, theme persistence | Demonstrate these without claiming they are novel inventions. |
-| Working submission | Local setup and concurrency/UI tests | Record and add the required root `demo.mp4`. |
+| Working submission | [Recorded UI demonstration](../demo.mp4), [concurrency screenshot](screenshots/concurrency-results.png), reproducible concurrency/UI tests | Explain the recorded behavior and reproduce the tests when asked. |
 | Deployment | README explains the SQLite hosting constraint | Add a real deployment link if hosted; otherwise give local setup instructions. |
 
 ## Suggested recording: 4-6 minutes
@@ -30,7 +32,7 @@ Save the recording as `demo.mp4` in the project root.
 5. Trace one hold request through the API helper, identity middleware, route, immediate transaction, constraints, and committed SSE update using the architecture diagram.
 6. Explain why SQLite requires durable storage, what would change for multiple backend instances, and what is intentionally out of scope.
 
-Do not display passcodes, bearer tokens, session cookies, or signing secrets. The video is not complete until you record it and check that it plays.
+The included recording is a short UI demonstration; the concurrency screenshot supplements it. The sequence above is a suggested expanded walkthrough, not a claim that every item appears in the video. Do not display passcodes, bearer tokens, session cookies, or signing secrets.
 
 ## Explain these without reading code aloud
 
@@ -44,7 +46,7 @@ Do not display passcodes, bearer tokens, session cookies, or signing secrets. Th
 
 ## Final handoff
 
-- Add `demo.mp4` and verify the README link works on GitHub.
+- The root `demo.mp4` and concurrency screenshot are included. Verify their README links after pushing.
 - Keep an ordinary GitHub video upload under 100 MB; for a larger recording, use a hosted video link or Git LFS and document it.
 - Check that no `.env`, database, dependencies, generated builds, or logs are staged.
 - Share the repository, local setup, recording, and any real deployed URL.
